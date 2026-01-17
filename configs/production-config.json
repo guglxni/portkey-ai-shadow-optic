@@ -1,0 +1,85 @@
+{
+  "$schema": "https://portkey.ai/schemas/config.json",
+  "name": "shadow-optic-production",
+  "description": "Production configuration using Model Catalog + Virtual Model Names",
+  "version": "2.1.0",
+
+  "strategy": {
+    "mode": "fallback",
+    "on_status_codes": [429, 500, 502, 503, 504],
+    "retry": {
+      "attempts": 3,
+      "on_status_codes": [429, 500, 502, 503, 504]
+    }
+  },
+
+  "targets": [
+    {
+      "virtual_model": "prod-primary",
+      "override_params": {
+        "model": "@openai/gpt-5.2",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "weight": 1.0
+    },
+    {
+      "virtual_model": "prod-fallback",
+      "override_params": {
+        "model": "@anthropic/claude-sonnet-4.5",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "weight": 0.0
+    }
+  ],
+
+  "cache": {
+    "mode": "semantic",
+    "max_age": 3600
+  },
+
+  "request_timeout": 60000,
+
+  "metadata": {
+    "environment": "production",
+    "service": "shadow-optic",
+    "version": "2.1.0",
+    "cost_tracking": true,
+    "model_catalog": true,
+    "architecture": "virtual_models"
+  },
+
+  "hooks": {
+    "beforeRequestHooks": [
+      {
+        "type": "addMetadata",
+        "config": {
+          "trace_source": "production",
+          "shadow_optic_version": "2.1.0"
+        }
+      }
+    ],
+    "afterRequestHooks": [
+      {
+        "type": "log",
+        "config": {
+          "include_prompt": true,
+          "include_response": true,
+          "include_metadata": true
+        }
+      }
+    ]
+  },
+
+  "rate_limiting": {
+    "requests_per_minute": 1000,
+    "tokens_per_minute": 150000
+  },
+
+  "budget": {
+    "daily_limit_usd": 500,
+    "monthly_limit_usd": 10000,
+    "alert_threshold_percent": 80
+  }
+}

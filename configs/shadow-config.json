@@ -1,0 +1,104 @@
+{
+  "$schema": "https://portkey.ai/schemas/config.json",
+  "name": "shadow-optic-shadow-testing",
+  "description": "Shadow testing configuration using Model Catalog + Virtual Model Names",
+  "version": "2.1.0",
+
+  "strategy": {
+    "mode": "loadbalance",
+    "on_status_codes": [429, 500, 502, 503, 504],
+    "retry": {
+      "attempts": 2,
+      "on_status_codes": [429, 500, 502, 503, 504]
+    }
+  },
+
+  "targets": [
+    {
+      "virtual_model": "shadow-challenger-1",
+      "override_params": {
+        "model": "@openai/gpt-5-mini",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "weight": 0.4
+    },
+    {
+      "virtual_model": "shadow-challenger-2",
+      "override_params": {
+        "model": "@anthropic/claude-haiku-4.5",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "weight": 0.3
+    },
+    {
+      "virtual_model": "shadow-challenger-3",
+      "override_params": {
+        "model": "@google/gemini-2.5-flash",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "weight": 0.3
+    }
+  ],
+
+  "cache": {
+    "mode": "simple",
+    "max_age": 86400
+  },
+
+  "request_timeout": 120000,
+
+  "metadata": {
+    "environment": "shadow",
+    "service": "shadow-optic",
+    "version": "2.1.0",
+    "is_shadow_test": true,
+    "cost_tracking": true,
+    "model_catalog": true,
+    "architecture": "virtual_models"
+  },
+
+  "hooks": {
+    "beforeRequestHooks": [
+      {
+        "type": "addMetadata",
+        "config": {
+          "trace_source": "shadow",
+          "shadow_optic_version": "2.1.0",
+          "evaluation_mode": true
+        }
+      }
+    ],
+    "afterRequestHooks": [
+      {
+        "type": "log",
+        "config": {
+          "include_prompt": true,
+          "include_response": true,
+          "include_metadata": true,
+          "include_latency": true,
+          "include_tokens": true
+        }
+      }
+    ]
+  },
+
+  "rate_limiting": {
+    "requests_per_minute": 500,
+    "tokens_per_minute": 100000
+  },
+
+  "budget": {
+    "daily_limit_usd": 50,
+    "monthly_limit_usd": 500,
+    "alert_threshold_percent": 70,
+    "hard_stop_at_limit": true
+  },
+
+  "fallback": {
+    "on_error": "skip",
+    "log_failures": true
+  }
+}

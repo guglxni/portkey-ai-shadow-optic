@@ -1,0 +1,253 @@
+# Shadow-Optic Alert Rules
+# ============================================================================
+# Prometheus alerting rules for Shadow-Optic components
+# ============================================================================
+
+groups:
+  # ============================================================================
+  # Workflow Alerts
+  # ============================================================================
+  - name: shadow_optic_workflows
+    interval: 30s
+    rules:
+      - alert: WorkflowFailureRateHigh
+        expr: |
+          (
+            sum(rate(shadow_optic_workflow_failures_total[5m])) /
+            sum(rate(shadow_optic_workflow_executions_total[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: shadow-optic
+        annotations:
+          summary: "High workflow failure rate"
+          description: "Workflow failure rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+          runbook_url: "https://docs.shadow-optic.io/runbooks/workflow-failures"
+
+      - alert: WorkflowDurationExceeded
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(shadow_optic_workflow_duration_seconds_bucket[10m])) by (le, workflow_type)
+          ) > 3600
+        for: 10m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "Workflow duration exceeds threshold"
+          description: "95th percentile workflow duration is {{ $value | humanizeDuration }}"
+
+      - alert: NoWorkflowsRunning
+        expr: |
+          absent(shadow_optic_active_workflows) or
+          shadow_optic_active_workflows == 0
+        for: 1h
+        labels:
+          severity: info
+          service: shadow-optic
+        annotations:
+          summary: "No optimization workflows running"
+          description: "No Shadow-Optic workflows have run in the last hour"
+
+  # ============================================================================
+  # Evaluation Alerts
+  # ============================================================================
+  - name: shadow_optic_evaluations
+    interval: 30s
+    rules:
+      - alert: EvaluationQualityDrop
+        expr: |
+          avg(shadow_optic_evaluation_score{metric="faithfulness"}) < 0.7
+        for: 15m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "Evaluation quality scores dropping"
+          description: "Average faithfulness score is {{ $value | printf \"%.2f\" }}"
+
+      - alert: HighRefusalRate
+        expr: |
+          (
+            sum(shadow_optic_refusals_total) /
+            sum(shadow_optic_evaluations_total)
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "High refusal rate detected"
+          description: "Refusal rate is {{ $value | humanizePercentage }}"
+
+      - alert: EvaluationLatencyHigh
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(shadow_optic_evaluation_duration_seconds_bucket[5m])) by (le)
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "Evaluation latency is high"
+          description: "99th percentile evaluation latency is {{ $value | humanizeDuration }}"
+
+  # ============================================================================
+  # Cost Alerts
+  # ============================================================================
+  - name: shadow_optic_costs
+    interval: 1m
+    rules:
+      - alert: ShadowBudgetExceeded
+        expr: |
+          shadow_optic_shadow_spend_total > 50
+        for: 1m
+        labels:
+          severity: critical
+          service: shadow-optic
+        annotations:
+          summary: "Shadow testing budget exceeded"
+          description: "Shadow spend is ${{ $value | printf \"%.2f\" }}, exceeding $50 budget"
+
+      - alert: ShadowBudgetNearLimit
+        expr: |
+          shadow_optic_shadow_spend_total > 40
+        for: 5m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "Shadow testing budget near limit"
+          description: "Shadow spend is ${{ $value | printf \"%.2f\" }}, approaching $50 budget"
+
+      - alert: CostSavingsOpportunityMissed
+        expr: |
+          (
+            shadow_optic_production_cost_rate -
+            shadow_optic_optimal_challenger_cost_rate
+          ) / shadow_optic_production_cost_rate > 0.5
+          and
+          shadow_optic_recommendation_action != 1
+        for: 24h
+        labels:
+          severity: info
+          service: shadow-optic
+        annotations:
+          summary: "Cost savings opportunity available"
+          description: "Potential savings of {{ $value | humanizePercentage }} not being utilized"
+
+  # ============================================================================
+  # Infrastructure Alerts
+  # ============================================================================
+  - name: shadow_optic_infrastructure
+    interval: 30s
+    rules:
+      - alert: APIServerDown
+        expr: |
+          up{job="shadow-optic-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: shadow-optic
+        annotations:
+          summary: "Shadow-Optic API server is down"
+          description: "API server has been unreachable for 1 minute"
+
+      - alert: WorkerDown
+        expr: |
+          up{job="shadow-optic-worker"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: shadow-optic
+        annotations:
+          summary: "Shadow-Optic worker is down"
+          description: "Worker has been unreachable for 1 minute"
+
+      - alert: TemporalUnreachable
+        expr: |
+          up{job="temporal"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: shadow-optic
+        annotations:
+          summary: "Temporal server is unreachable"
+          description: "Cannot connect to Temporal workflow engine"
+
+      - alert: QdrantUnreachable
+        expr: |
+          up{job="qdrant"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: shadow-optic
+        annotations:
+          summary: "Qdrant vector database is unreachable"
+          description: "Cannot connect to Qdrant for semantic operations"
+
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            container_memory_usage_bytes{container=~"shadow-optic.*"} /
+            container_spec_memory_limit_bytes{container=~"shadow-optic.*"}
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "High memory usage"
+          description: "Container {{ $labels.container }} memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: HighCPUUsage
+        expr: |
+          rate(container_cpu_usage_seconds_total{container=~"shadow-optic.*"}[5m]) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "High CPU usage"
+          description: "Container {{ $labels.container }} CPU usage is {{ $value | humanizePercentage }}"
+
+  # ============================================================================
+  # Portkey Integration Alerts
+  # ============================================================================
+  - name: shadow_optic_portkey
+    interval: 30s
+    rules:
+      - alert: PortkeyAPIErrors
+        expr: |
+          rate(shadow_optic_portkey_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "Portkey API errors detected"
+          description: "Portkey API error rate is {{ $value | printf \"%.2f\" }}/s"
+
+      - alert: PortkeyRateLimited
+        expr: |
+          increase(shadow_optic_portkey_rate_limits_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "Being rate limited by Portkey"
+          description: "{{ $value | printf \"%.0f\" }} rate limit hits in the last 5 minutes"
+
+      - alert: PortkeyLogExportFailed
+        expr: |
+          increase(shadow_optic_portkey_log_export_failures_total[10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: shadow-optic
+        annotations:
+          summary: "Portkey log export failed"
+          description: "Failed to export logs from Portkey API"

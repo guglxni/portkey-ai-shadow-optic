@@ -1,0 +1,103 @@
+# Prometheus Configuration for Shadow-Optic
+# ============================================================================
+# This configuration scrapes metrics from Shadow-Optic services
+# including the API server, Temporal worker, and infrastructure components.
+# ============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'shadow-optic'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Rule files for alerting
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Scrape configurations
+scrape_configs:
+  # ============================================================================
+  # Shadow-Optic API Server
+  # ============================================================================
+  - job_name: 'shadow-optic-api'
+    static_configs:
+      - targets: ['shadow-optic-api:8000']
+        labels:
+          service: 'api'
+          component: 'shadow-optic'
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # ============================================================================
+  # Shadow-Optic Worker
+  # ============================================================================
+  - job_name: 'shadow-optic-worker'
+    static_configs:
+      - targets: ['shadow-optic-worker:9090']
+        labels:
+          service: 'worker'
+          component: 'shadow-optic'
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # ============================================================================
+  # Temporal Server
+  # ============================================================================
+  - job_name: 'temporal'
+    static_configs:
+      - targets: ['temporal:7233']
+        labels:
+          service: 'temporal'
+          component: 'workflow-engine'
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # ============================================================================
+  # Qdrant Vector Database
+  # ============================================================================
+  - job_name: 'qdrant'
+    static_configs:
+      - targets: ['qdrant:6333']
+        labels:
+          service: 'qdrant'
+          component: 'vector-db'
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # ============================================================================
+  # Prometheus Self-Monitoring
+  # ============================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          component: 'monitoring'
+
+  # ============================================================================
+  # Node Exporter (Host Metrics)
+  # ============================================================================
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'node-exporter'
+          component: 'infrastructure'
+    scrape_interval: 30s
+
+# ============================================================================
+# Remote Write Configuration (Optional - for long-term storage)
+# ============================================================================
+# remote_write:
+#   - url: "https://prometheus-remote-write.example.com/api/v1/write"
+#     basic_auth:
+#       username: "${PROMETHEUS_REMOTE_USER}"
+#       password: "${PROMETHEUS_REMOTE_PASSWORD}"
