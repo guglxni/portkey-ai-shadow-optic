@@ -1,0 +1,33 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4F46E5'}}}%%
+
+sequenceDiagram
+    participant U as User
+    participant A as Application
+    participant P as Portkey Gateway
+    participant M as Production Model
+    participant S as Shadow-Optic
+    participant C as Challenger Models
+    participant J as Judge Model
+    participant R as Report
+
+    Note over U,R: Production Traffic Flow (Unaffected)
+    U->>A: Request
+    A->>P: API Call
+    P->>M: Forward to Production Model
+    M-->>P: Response
+    P-->>A: Return Response
+    A-->>U: Display Result
+    
+    Note over U,R: Shadow Evaluation Flow (Async)
+    P--)S: Export Logs (Scheduled)
+    
+    activate S
+    S->>S: Parse and Sample Logs
+    S->>C: Replay to Challengers
+    C-->>S: Challenger Responses
+    S->>J: Evaluate Quality
+    J-->>S: Quality Scores
+    S->>S: Statistical Analysis
+    S->>R: Generate Report
+    S->>P: Submit Feedback
+    deactivate S

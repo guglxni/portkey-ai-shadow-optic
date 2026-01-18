@@ -158,13 +158,26 @@ class OptimizeModelSelectionWorkflow:
         traces: List[ProductionTrace],
         config: WorkflowConfig
     ) -> List[GoldenPrompt]:
-        """Run semantic sampling via activity."""
-        return await workflow.execute_activity(
-            "sample_golden_prompts",
-            args=[traces, config.sampler],
-            start_to_close_timeout=timedelta(minutes=15),
-            retry_policy=DEFAULT_RETRY_POLICY
-        )
+        """Run semantic sampling via activity.
+        
+        Uses PromptGenie's semantic clustering when config.genie.enabled is True,
+        otherwise falls back to the legacy regex-based sampler.
+        """
+        if config.genie.enabled:
+            workflow.logger.info("Using PromptGenie for semantic sampling")
+            return await workflow.execute_activity(
+                "sample_golden_prompts_genie",
+                args=[traces, config.genie, config.sampler.samples_per_cluster],
+                start_to_close_timeout=timedelta(minutes=15),
+                retry_policy=DEFAULT_RETRY_POLICY
+            )
+        else:
+            return await workflow.execute_activity(
+                "sample_golden_prompts",
+                args=[traces, config.sampler],
+                start_to_close_timeout=timedelta(minutes=15),
+                retry_policy=DEFAULT_RETRY_POLICY
+            )
     
     async def _replay_all_challengers(
         self,
@@ -486,4 +499,196 @@ class AdaptiveOptimizationWorkflow:
                 "expected_value": self._alpha[model] / (self._alpha[model] + self._beta[model])
             }
             for model in self._alpha
+        }
+
+
+@workflow.defn
+class AgenticOptimizationWorkflow:
+    """
+    Self-optimizing workflow with Agentic Metadata and DSPy integration.
+    
+    This workflow implements the "Watchdog Loop" pattern:
+    1. Scans Qdrant clusters for drift/quality triggers
+    2. Invokes DSPy optimization for failing clusters
+    3. Updates cluster state machine (EMBRYONIC → STABLE → DRIFTING → UNSTABLE)
+    4. Records evolution history for audit
+    
+    Key Features:
+    - Autonomous prompt governance via AgenticPolicy
+    - DSPy MIPROv2 prompt optimization
+    - Tiered response strategy (cheap → DSPy-enhanced → fallback)
+    - Phoenix integration for drift detection
+    
+    Example:
+        ```python
+        await client.start_workflow(
+            AgenticOptimizationWorkflow.run,
+            config,
+            id="agentic-optimization",
+            task_queue="shadow-optic",
+            cron_schedule="*/30 * * * *"  # Every 30 minutes
+        )
+        ```
+    """
+    
+    def __init__(self):
+        self._clusters_scanned: int = 0
+        self._optimizations_triggered: int = 0
+        self._fallbacks_applied: int = 0
+        self._current_stage: str = "idle"
+    
+    @workflow.run
+    async def run(self, config: WorkflowConfig) -> Dict[str, Any]:
+        """
+        Execute the agentic optimization workflow.
+        
+        This workflow:
+        1. Scans all clusters for trigger conditions
+        2. Processes drifting/unstable clusters
+        3. Triggers DSPy optimization or fallback as needed
+        4. Updates cluster state and records evolution
+        
+        Args:
+            config: Workflow configuration
+            
+        Returns:
+            Summary of actions taken
+        """
+        workflow.logger.info("Starting agentic optimization workflow")
+        self._current_stage = "scanning"
+        
+        try:
+            # Stage 1: Scan clusters for triggers
+            scan_results = await workflow.execute_activity(
+                "scan_clusters_for_triggers",
+                args=[config],
+                start_to_close_timeout=timedelta(minutes=10),
+                retry_policy=DEFAULT_RETRY_POLICY
+            )
+            
+            self._clusters_scanned = scan_results.get("clusters_scanned", 0)
+            drifting_clusters = scan_results.get("drifting_clusters", [])
+            unstable_clusters = scan_results.get("unstable_clusters", [])
+            
+            workflow.logger.info(
+                f"Scan complete: {len(drifting_clusters)} drifting, "
+                f"{len(unstable_clusters)} unstable"
+            )
+            
+            # Stage 2: Process unstable clusters (highest priority)
+            self._current_stage = "processing_unstable"
+            for cluster_info in unstable_clusters:
+                await self._process_unstable_cluster(cluster_info, config)
+            
+            # Stage 3: Process drifting clusters
+            self._current_stage = "processing_drifting"
+            for cluster_info in drifting_clusters:
+                await self._process_drifting_cluster(cluster_info, config)
+            
+            # Stage 4: Generate summary
+            self._current_stage = "complete"
+            
+            return {
+                "clusters_scanned": self._clusters_scanned,
+                "optimizations_triggered": self._optimizations_triggered,
+                "fallbacks_applied": self._fallbacks_applied,
+                "drifting_processed": len(drifting_clusters),
+                "unstable_processed": len(unstable_clusters),
+            }
+            
+        except Exception as e:
+            workflow.logger.error(f"Agentic workflow failed: {e}")
+            self._current_stage = "failed"
+            raise
+    
+    async def _process_unstable_cluster(
+        self,
+        cluster_info: Dict[str, Any],
+        config: WorkflowConfig
+    ) -> None:
+        """Process an unstable cluster with immediate action."""
+        cluster_id = cluster_info.get("cluster_id")
+        policy = cluster_info.get("policy", {})
+        
+        workflow.logger.info(f"Processing unstable cluster: {cluster_id}")
+        
+        # Check if DSPy optimization is enabled for this cluster
+        if policy.get("dspy_enabled", False):
+            # Attempt DSPy optimization
+            try:
+                result = await workflow.execute_activity(
+                    "optimize_cluster_with_dspy",
+                    args=[cluster_id, cluster_info],
+                    start_to_close_timeout=timedelta(minutes=20),
+                    retry_policy=DEFAULT_RETRY_POLICY
+                )
+                
+                if result.get("success"):
+                    self._optimizations_triggered += 1
+                    workflow.logger.info(
+                        f"DSPy optimization succeeded for {cluster_id}: "
+                        f"+{result.get('improvement', 0):.1%} improvement"
+                    )
+                    return
+            except Exception as e:
+                workflow.logger.warning(f"DSPy optimization failed for {cluster_id}: {e}")
+        
+        # Apply fallback if DSPy didn't work or isn't enabled
+        fallback_model = policy.get("fallback_model")
+        if fallback_model:
+            await workflow.execute_activity(
+                "apply_cluster_fallback",
+                args=[cluster_id, fallback_model],
+                start_to_close_timeout=timedelta(minutes=5),
+                retry_policy=DEFAULT_RETRY_POLICY
+            )
+            self._fallbacks_applied += 1
+            workflow.logger.info(f"Applied fallback {fallback_model} for {cluster_id}")
+    
+    async def _process_drifting_cluster(
+        self,
+        cluster_info: Dict[str, Any],
+        config: WorkflowConfig
+    ) -> None:
+        """Process a drifting cluster with proactive optimization."""
+        cluster_id = cluster_info.get("cluster_id")
+        policy = cluster_info.get("policy", {})
+        variance = policy.get("variance", 0)
+        
+        workflow.logger.info(f"Processing drifting cluster: {cluster_id} (variance: {variance:.3f})")
+        
+        # For drifting clusters, try DSPy optimization if auto_deploy is enabled
+        if policy.get("dspy_enabled") and policy.get("auto_deploy"):
+            try:
+                result = await workflow.execute_activity(
+                    "optimize_cluster_with_dspy",
+                    args=[cluster_id, cluster_info],
+                    start_to_close_timeout=timedelta(minutes=20),
+                    retry_policy=DEFAULT_RETRY_POLICY
+                )
+                
+                if result.get("success"):
+                    self._optimizations_triggered += 1
+                    
+                    # Update cluster state to STABLE if optimization succeeded
+                    await workflow.execute_activity(
+                        "update_cluster_state",
+                        args=[cluster_id, "STABLE", {"optimized": True}],
+                        start_to_close_timeout=timedelta(minutes=2),
+                        retry_policy=DEFAULT_RETRY_POLICY
+                    )
+            except Exception as e:
+                workflow.logger.warning(f"Proactive optimization failed for {cluster_id}: {e}")
+        else:
+            # Just record that we observed drift but didn't act
+            workflow.logger.info(f"Drift observed for {cluster_id} - auto_deploy disabled")
+    
+    @workflow.query
+    def get_status(self) -> Dict[str, Any]:
+        """Query current workflow status."""
+        return {
+            "stage": self._current_stage,
+            "clusters_scanned": self._clusters_scanned,
+            "optimizations_triggered": self._optimizations_triggered,
+            "fallbacks_applied": self._fallbacks_applied,
         }

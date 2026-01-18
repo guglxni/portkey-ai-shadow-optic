@@ -40,13 +40,13 @@ Portkey provides extensive built-in capabilities that eliminate the need for man
 
 | Feature | LiteLLM | Portkey Native | Decision |
 |---------|---------|----------------|----------|
-| Cost Tracking | `completion_cost()` function | Built-in per-request cost in logs & analytics | ✅ **Use Portkey** |
-| Token Counting | Uses tiktoken internally | Automatic token tracking in every request | ✅ **Use Portkey** |
-| Budget Limits | Not available | Cost-based and token-based limits on providers | ✅ **Use Portkey** |
-| Multi-Provider | 100+ LLMs | 250+ LLMs via unified API | ✅ **Use Portkey** |
-| Analytics Dashboard | Not available | 40+ metrics dashboard | ✅ **Use Portkey** |
-| Guardrails | Not available | 20+ built-in + partner integrations | ✅ **Use Portkey** |
-| A/B Testing | Not available | Canary testing + load balancing | ✅ **Use Portkey** |
+| Cost Tracking | `completion_cost()` function | Built-in per-request cost in logs & analytics |  **Use Portkey** |
+| Token Counting | Uses tiktoken internally | Automatic token tracking in every request |  **Use Portkey** |
+| Budget Limits | Not available | Cost-based and token-based limits on providers |  **Use Portkey** |
+| Multi-Provider | 100+ LLMs | 250+ LLMs via unified API |  **Use Portkey** |
+| Analytics Dashboard | Not available | 40+ metrics dashboard |  **Use Portkey** |
+| Guardrails | Not available | 20+ built-in + partner integrations |  **Use Portkey** |
+| A/B Testing | Not available | Canary testing + load balancing |  **Use Portkey** |
 
 ### Why NOT Unleash/Flipt/Flagsmith?
 
@@ -54,11 +54,11 @@ Portkey provides extensive built-in capabilities that eliminate the need for man
 
 | Feature | External Feature Flags | Portkey Native | Decision |
 |---------|----------------------|----------------|----------|
-| Percentage Rollouts | Unleash gradual rollouts | `weight` in loadbalance config | ✅ **Use Portkey** |
-| Canary Testing | Manual integration | Native canary testing with analytics | ✅ **Use Portkey** |
-| Kill Switch | Flag toggle | Remove target from config or set `weight: 0` | ✅ **Use Portkey** |
-| A/B Metrics | External analytics | Built-in analytics dashboard | ✅ **Use Portkey** |
-| Sticky Sessions | Session affinity | `sticky_session` with hash_fields | ✅ **Use Portkey** |
+| Percentage Rollouts | Unleash gradual rollouts | `weight` in loadbalance config |  **Use Portkey** |
+| Canary Testing | Manual integration | Native canary testing with analytics |  **Use Portkey** |
+| Kill Switch | Flag toggle | Remove target from config or set `weight: 0` |  **Use Portkey** |
+| A/B Metrics | External analytics | Built-in analytics dashboard |  **Use Portkey** |
+| Sticky Sessions | Session affinity | `sticky_session` with hash_fields |  **Use Portkey** |
 
 ### Why NOT NeMo Guardrails / LLM Guard for Core Features?
 
@@ -66,13 +66,13 @@ Portkey provides extensive built-in capabilities that eliminate the need for man
 
 | Guardrail Type | External Library | Portkey Native | Decision |
 |----------------|------------------|----------------|----------|
-| Content Moderation | LLM Guard Toxicity | `Moderate Content` PRO check | ✅ **Use Portkey** |
-| PII Detection | LLM Guard PII | `Detect PII` with categories | ✅ **Use Portkey** |
-| Prompt Injection | LLM Guard PromptInjection | Partner: Azure/Pillar/Lasso | ✅ **Use Portkey** |
-| JSON Schema | Guardrails AI | `JSON Schema` validation | ✅ **Use Portkey** |
-| Regex Matching | Custom code | `Regex Match` guardrail | ✅ **Use Portkey** |
-| Gibberish Detection | NeMo Guardrails | `Detect Gibberish` PRO check | ✅ **Use Portkey** |
-| Custom Guardrails | Custom webhook | `Webhook` guardrail | ✅ **Use Portkey** |
+| Content Moderation | LLM Guard Toxicity | `Moderate Content` PRO check |  **Use Portkey** |
+| PII Detection | LLM Guard PII | `Detect PII` with categories |  **Use Portkey** |
+| Prompt Injection | LLM Guard PromptInjection | Partner: Azure/Pillar/Lasso |  **Use Portkey** |
+| JSON Schema | Guardrails AI | `JSON Schema` validation |  **Use Portkey** |
+| Regex Matching | Custom code | `Regex Match` guardrail |  **Use Portkey** |
+| Gibberish Detection | NeMo Guardrails | `Detect Gibberish` PRO check |  **Use Portkey** |
+| Custom Guardrails | Custom webhook | `Webhook` guardrail |  **Use Portkey** |
 
 ### What FOSS We Still Need (Portkey Doesn't Cover)
 
@@ -94,15 +94,15 @@ The Cost Prediction Model enables intelligent budget allocation by predicting th
 ### 1.2 Portkey-First Architecture
 
 **What Portkey Provides:**
-- ✅ **Real-time cost tracking** - Every request logs cost automatically
-- ✅ **Token usage tracking** - Input/output tokens per request
-- ✅ **Budget limits** - Cost-based and token-based limits on providers
-- ✅ **Analytics API** - Historical cost data for ML training
-- ✅ **Metadata filtering** - Group costs by experiment, user, model
+-  **Real-time cost tracking** - Every request logs cost automatically
+-  **Token usage tracking** - Input/output tokens per request
+-  **Budget limits** - Cost-based and token-based limits on providers
+-  **Analytics API** - Historical cost data for ML training
+-  **Metadata filtering** - Group costs by experiment, user, model
 
 **What We Need FOSS For:**
-- 🔧 **tiktoken** - Pre-request token estimation (before hitting Portkey)
-- 🔧 **scikit-learn** - ML model training (GradientBoostingRegressor)
+-  **tiktoken** - Pre-request token estimation (before hitting Portkey)
+-  **scikit-learn** - ML model training (GradientBoostingRegressor)
 
 ### 1.3 Minimal FOSS Dependencies
 
@@ -406,16 +406,16 @@ Automatic Guardrail Tuning uses LLM-powered analysis to detect refusal patterns 
 ### 2.2 Portkey-First Architecture
 
 **What Portkey Provides:**
-- ✅ **20+ Built-in Guardrails** - Regex, JSON Schema, Contains Code, etc.
-- ✅ **LLM-based PRO Guardrails** - Moderate Content, Detect PII, Detect Gibberish
-- ✅ **Partner Guardrails** - Aporia, Azure, Pillar, Lasso, Patronus, etc.
-- ✅ **Custom Webhook Guardrails** - Bring your own guardrail logic
-- ✅ **Feedback API** - Track guardrail pass/fail with feedback values
-- ✅ **Status Codes 246/446** - Programmatic handling of guardrail failures
-- ✅ **DSPy Integration** - Native Portkey + DSPy for prompt optimization
+-  **20+ Built-in Guardrails** - Regex, JSON Schema, Contains Code, etc.
+-  **LLM-based PRO Guardrails** - Moderate Content, Detect PII, Detect Gibberish
+-  **Partner Guardrails** - Aporia, Azure, Pillar, Lasso, Patronus, etc.
+-  **Custom Webhook Guardrails** - Bring your own guardrail logic
+-  **Feedback API** - Track guardrail pass/fail with feedback values
+-  **Status Codes 246/446** - Programmatic handling of guardrail failures
+-  **DSPy Integration** - Native Portkey + DSPy for prompt optimization
 
 **What We Need FOSS For:**
-- 🔧 **DSPy** - Prompt optimization (but via Portkey's native integration!)
+-  **DSPy** - Prompt optimization (but via Portkey's native integration!)
 
 > **Key Insight:** Portkey's Guardrails + DSPy integration means we can build the entire guardrail tuning system on Portkey's stack.
 
@@ -812,17 +812,17 @@ Auto A/B Graduation automates the staged rollout of challenger models from shado
 ### 3.2 Portkey-First Architecture
 
 **What Portkey Provides:**
-- ✅ **Canary Testing** - Native support via load balancing with weights
-- ✅ **Load Balancing** - Weighted distribution across models/providers
-- ✅ **Sticky Sessions** - Consistent routing with `hash_fields` and TTL
-- ✅ **Analytics Dashboard** - Compare model performance (cost, latency, errors)
-- ✅ **Fallbacks** - Automatic failover on errors
-- ✅ **Kill Switch** - Set `weight: 0` to stop traffic instantly
-- ✅ **Feedback API** - Track success/failure for quality gates
-- ✅ **Metadata Grouping** - Group analytics by experiment_id
+-  **Canary Testing** - Native support via load balancing with weights
+-  **Load Balancing** - Weighted distribution across models/providers
+-  **Sticky Sessions** - Consistent routing with `hash_fields` and TTL
+-  **Analytics Dashboard** - Compare model performance (cost, latency, errors)
+-  **Fallbacks** - Automatic failover on errors
+-  **Kill Switch** - Set `weight: 0` to stop traffic instantly
+-  **Feedback API** - Track success/failure for quality gates
+-  **Metadata Grouping** - Group analytics by experiment_id
 
 **What We Need FOSS For:**
-- 🔧 **spotify-confidence** - Statistical significance testing (Portkey has data, we need stats)
+-  **spotify-confidence** - Statistical significance testing (Portkey has data, we need stats)
 
 ### 3.3 Minimal FOSS Dependencies
 
@@ -1595,7 +1595,7 @@ numpy = ">=1.26.0"
 
 ## Appendix B: FOSS Repository Summary (Portkey-First Analysis)
 
-### ✅ Libraries We're Using
+###  Libraries We're Using
 
 | Library | GitHub | Stars | License | Purpose | Why Needed |
 |---------|--------|-------|---------|---------|------------|
@@ -1604,18 +1604,18 @@ numpy = ">=1.26.0"
 | **DSPy** | stanfordnlp/dspy | 31.6k | MIT | Prompt optimization | Via Portkey's native integration |
 | **spotify-confidence** | spotify/confidence | 279 | Apache-2.0 | A/B statistics | Statistical significance testing |
 
-### ❌ Libraries NOT Needed (Portkey Provides)
+###  Libraries NOT Needed (Portkey Provides)
 
 | Library | Stars | Portkey Equivalent | Decision |
 |---------|-------|-------------------|----------|
-| LiteLLM | 34k | Cost tracking, token counting, 250+ LLMs | ❌ Skip |
-| NeMo Guardrails | 5.5k | 20+ built-in guardrails | ❌ Skip |
-| Guardrails AI | 6.3k | JSON Schema, Webhook guardrails | ❌ Skip |
-| LLM Guard | 2.4k | Detect PII, Moderate Content | ❌ Skip |
-| Unleash | 13.1k | Load balancing, canary testing | ❌ Skip |
-| Flipt | 4.7k | Weighted routing, configs | ❌ Skip |
-| Flagsmith | 6.2k | Analytics dashboard | ❌ Skip |
-| MLflow | 23.7k | Portkey observability | ❌ Skip |
+| LiteLLM | 34k | Cost tracking, token counting, 250+ LLMs |  Skip |
+| NeMo Guardrails | 5.5k | 20+ built-in guardrails |  Skip |
+| Guardrails AI | 6.3k | JSON Schema, Webhook guardrails |  Skip |
+| LLM Guard | 2.4k | Detect PII, Moderate Content |  Skip |
+| Unleash | 13.1k | Load balancing, canary testing |  Skip |
+| Flipt | 4.7k | Weighted routing, configs |  Skip |
+| Flagsmith | 6.2k | Analytics dashboard |  Skip |
+| MLflow | 23.7k | Portkey observability |  Skip |
 
 ### Dependency Reduction Summary
 

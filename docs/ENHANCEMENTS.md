@@ -533,7 +533,7 @@ class QualityTrendDetector:
                     # Check for alerts
                     alert = self.detect_degradation(model, metric)
                     if alert:
-                        report += f"    ⚠️ ALERT: {alert.recommendation}\n"
+                        report += f"    ALERT: ALERT: {alert.recommendation}\n"
             
             report += "\n"
         
@@ -565,7 +565,7 @@ class AlertNotifier:
                     "type": "header",
                     "text": {
                         "type": "plain_text",
-                        "text": f"⚠️ Quality Alert: {alert.alert_type.upper()}"
+                        "text": f"ALERT: Quality Alert: {alert.alert_type.upper()}"
                     }
                 },
                 {
@@ -1301,7 +1301,7 @@ Report ID: {report.report_id}
         sections.append("## Challenger Model Results\n")
         
         for model, result in report.challenger_results.items():
-            status = "✅ PASSED" if result.passed_thresholds else "❌ FAILED"
+            status = " PASSED" if result.passed_thresholds else " FAILED"
             
             sections.append(f"""
 ### {model} {status}

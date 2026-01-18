@@ -25,6 +25,7 @@ from shadow_optic.models import (
     ChallengerResult,
     EvaluationResult,
     EvaluatorConfig,
+    GenieConfig,
     GoldenPrompt,
     OptimizationReport,
     ProductionTrace,
@@ -249,6 +250,56 @@ async def sample_golden_prompts(
     finally:
         await portkey.close()
         await qdrant.close()
+
+
+# =============================================================================
+# Activity: Sample Golden Prompts with PromptGenie
+# =============================================================================
+
+@activity.defn
+async def sample_golden_prompts_genie(
+    traces: List[ProductionTrace],
+    genie_config: GenieConfig,
+    samples_per_cluster: int = 3
+) -> List[GoldenPrompt]:
+    """Select representative golden prompts using PromptGenie's semantic clustering.
+    
+    Uses the GenieTemplateExtractor adapter which integrates:
+    - SentenceTransformers embeddings (local FOSS)
+    - Qdrant vector clustering
+    - LLM-powered Jinja2 template extraction via Portkey
+    - Agentic metadata for intelligent routing
+    
+    Args:
+        traces: Production traces from Portkey
+        genie_config: Configuration for PromptGenie integration
+        samples_per_cluster: Number of samples to select per semantic cluster
+        
+    Returns:
+        List of GoldenPrompt objects enriched with Genie fields
+    """
+    from shadow_optic.templates import GenieTemplateExtractor
+    
+    activity.logger.info(f"Sampling from {len(traces)} traces with PromptGenie")
+    
+    if not traces:
+        return []
+    
+    extractor = GenieTemplateExtractor(genie_config)
+    
+    try:
+        golden_prompts = await extractor.sample_with_templates(
+            traces, 
+            samples_per_cluster=samples_per_cluster
+        )
+        
+        rate = len(golden_prompts) / len(traces) * 100 if traces else 0
+        activity.logger.info(
+            f"Selected {len(golden_prompts)} prompts via PromptGenie ({rate:.1f}%)"
+        )
+        return golden_prompts
+    finally:
+        await extractor.shutdown()
 
 
 # =============================================================================
@@ -523,3 +574,302 @@ async def submit_portkey_feedback(report: OptimizationReport) -> int:
         return submitted
     finally:
         await portkey.close()
+
+
+# =============================================================================
+# Activity: Scan Clusters for Triggers (Agentic Workflow)
+# =============================================================================
+
+@activity.defn
+async def scan_clusters_for_triggers(config: WorkflowConfig) -> Dict[str, Any]:
+    """Scan Qdrant clusters for trigger conditions.
+    
+    This activity implements the Watchdog scan pattern:
+    1. Query all cluster centroids from Qdrant
+    2. Check each cluster for drift/quality/cost triggers
+    3. Return lists of drifting and unstable clusters
+    
+    Args:
+        config: Workflow configuration with thresholds
+        
+    Returns:
+        Dict with clusters_scanned, drifting_clusters, unstable_clusters
+    """
+    activity.logger.info("Scanning clusters for triggers")
+    
+    qdrant = get_qdrant_client()
+    
+    try:
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        
+        collection = os.environ.get("QDRANT_COLLECTION", "prompt_clusters")
+        
+        # Get all centroid points
+        centroids, _ = await qdrant.scroll(
+            collection_name=collection,
+            scroll_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="is_centroid",
+                        match=MatchValue(value=True)
+                    )
+                ]
+            ),
+            limit=1000,
+            with_payload=True
+        )
+        
+        activity.logger.info(f"Found {len(centroids)} cluster centroids")
+        
+        # Thresholds
+        drift_threshold = 0.15
+        quality_threshold = 0.85
+        
+        drifting_clusters = []
+        unstable_clusters = []
+        
+        for point in centroids:
+            payload = point.payload or {}
+            cluster_id = payload.get("cluster_id", str(point.id))
+            policy = payload.get("agentic_policy", {})
+            
+            state = policy.get("state", "EMBRYONIC")
+            variance = policy.get("variance", 0.0)
+            metrics = policy.get("current_metrics", {})
+            quality = metrics.get("quality", 1.0)
+            
+            cluster_info = {
+                "cluster_id": cluster_id,
+                "point_id": str(point.id),
+                "policy": policy,
+                "template": payload.get("template"),
+                "variance": variance,
+                "quality": quality,
+            }
+            
+            # Check triggers
+            if state == "UNSTABLE" or quality < quality_threshold * 0.9:
+                unstable_clusters.append(cluster_info)
+            elif state == "DRIFTING" or variance > drift_threshold:
+                drifting_clusters.append(cluster_info)
+            
+            activity.heartbeat(f"Scanned {cluster_id}")
+        
+        return {
+            "clusters_scanned": len(centroids),
+            "drifting_clusters": drifting_clusters,
+            "unstable_clusters": unstable_clusters,
+        }
+        
+    finally:
+        await qdrant.close()
+
+
+# =============================================================================
+# Activity: Optimize Cluster with DSPy
+# =============================================================================
+
+@activity.defn
+async def optimize_cluster_with_dspy(
+    cluster_id: str,
+    cluster_info: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Optimize a cluster's prompts using DSPy MIPROv2.
+    
+    This activity:
+    1. Extracts the template as a DSPy Signature
+    2. Gathers training data from high-quality examples
+    3. Runs MIPROv2 optimization
+    4. Stores the optimized prompt if successful
+    
+    Args:
+        cluster_id: The cluster to optimize
+        cluster_info: Cluster info from scan
+        
+    Returns:
+        Dict with success, improvement, optimized_score
+    """
+    activity.logger.info(f"Starting DSPy optimization for cluster: {cluster_id}")
+    
+    try:
+        from shadow_optic.dspy_optimizer import (
+            DSPyOptimizer,
+            DSPyOptimizerConfig,
+            SignatureBuilder,
+        )
+        
+        qdrant = get_qdrant_client()
+        
+        # Extract template
+        template = cluster_info.get("template", "")
+        if not template:
+            return {
+                "success": False,
+                "error": "No template found for cluster",
+                "improvement": 0,
+            }
+        
+        # Configure optimizer
+        config = DSPyOptimizerConfig(
+            teacher_model="gpt-4o",
+            student_model="gpt-4o-mini",
+            auto_deploy=False,  # We'll handle deployment in the activity
+            num_trials=5,  # Fewer trials for faster execution
+        )
+        
+        optimizer = DSPyOptimizer(
+            config=config,
+            qdrant_client=qdrant,
+            collection_name=os.environ.get("QDRANT_COLLECTION", "prompt_clusters"),
+        )
+        
+        # Run optimization
+        result = await optimizer.optimize_cluster(
+            cluster_id=cluster_id,
+            template=template,
+            metrics=cluster_info.get("policy", {}).get("current_metrics", {}),
+        )
+        
+        activity.heartbeat(f"Optimization complete for {cluster_id}")
+        
+        if result.success:
+            # Store the optimized prompt
+            from prompt_genie.storage.vector_store import QdrantVectorStore
+            
+            vector_store = QdrantVectorStore(
+                host=os.environ.get("QDRANT_HOST", "localhost"),
+                port=int(os.environ.get("QDRANT_PORT", 6333)),
+                collection=os.environ.get("QDRANT_COLLECTION", "prompt_clusters"),
+            )
+            
+            await vector_store.update_optimization_result(
+                cluster_id=cluster_id,
+                optimized_prompt=result.optimized_prompt or "",
+                optimization_score=result.optimized_score,
+                student_model=config.student_model,
+            )
+            
+            await vector_store.close()
+        
+        await qdrant.close()
+        
+        return {
+            "success": result.success,
+            "improvement": result.improvement,
+            "optimized_score": result.optimized_score,
+            "original_score": result.original_score,
+            "error": result.error,
+        }
+        
+    except ImportError as e:
+        return {
+            "success": False,
+            "error": f"DSPy not installed: {e}",
+            "improvement": 0,
+        }
+    except Exception as e:
+        activity.logger.error(f"DSPy optimization failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "improvement": 0,
+        }
+
+
+# =============================================================================
+# Activity: Apply Cluster Fallback
+# =============================================================================
+
+@activity.defn
+async def apply_cluster_fallback(
+    cluster_id: str,
+    fallback_model: str
+) -> Dict[str, Any]:
+    """Apply fallback routing for a failing cluster.
+    
+    This updates the cluster's policy to route to the fallback model
+    and records the fallback in evolution history.
+    
+    Args:
+        cluster_id: The cluster to apply fallback to
+        fallback_model: The model to fall back to
+        
+    Returns:
+        Dict with success status
+    """
+    activity.logger.info(f"Applying fallback {fallback_model} for cluster {cluster_id}")
+    
+    try:
+        from prompt_genie.storage.vector_store import QdrantVectorStore
+        from datetime import datetime, timezone
+        
+        vector_store = QdrantVectorStore(
+            host=os.environ.get("QDRANT_HOST", "localhost"),
+            port=int(os.environ.get("QDRANT_PORT", 6333)),
+            collection=os.environ.get("QDRANT_COLLECTION", "prompt_clusters"),
+        )
+        
+        await vector_store.update_cluster_state(
+            cluster_id=cluster_id,
+            new_state="DRIFTING",  # Fallback moves from UNSTABLE to DRIFTING
+            metrics={"fallback_applied": True},
+            evolution_record={
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "action": "FALLBACK",
+                "change_description": f"Applied fallback to {fallback_model}",
+            }
+        )
+        
+        await vector_store.close()
+        
+        return {"success": True, "fallback_model": fallback_model}
+        
+    except Exception as e:
+        activity.logger.error(f"Failed to apply fallback: {e}")
+        return {"success": False, "error": str(e)}
+
+
+# =============================================================================
+# Activity: Update Cluster State
+# =============================================================================
+
+@activity.defn
+async def update_cluster_state(
+    cluster_id: str,
+    new_state: str,
+    metadata: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Update a cluster's state in Qdrant.
+    
+    Args:
+        cluster_id: The cluster to update
+        new_state: New state (EMBRYONIC, STABLE, DRIFTING, UNSTABLE)
+        metadata: Optional additional metadata
+        
+    Returns:
+        Dict with success status
+    """
+    activity.logger.info(f"Updating cluster {cluster_id} to state {new_state}")
+    
+    try:
+        from prompt_genie.storage.vector_store import QdrantVectorStore
+        
+        vector_store = QdrantVectorStore(
+            host=os.environ.get("QDRANT_HOST", "localhost"),
+            port=int(os.environ.get("QDRANT_PORT", 6333)),
+            collection=os.environ.get("QDRANT_COLLECTION", "prompt_clusters"),
+        )
+        
+        await vector_store.update_cluster_state(
+            cluster_id=cluster_id,
+            new_state=new_state,
+            metrics=metadata,
+        )
+        
+        await vector_store.close()
+        
+        return {"success": True, "new_state": new_state}
+        
+    except Exception as e:
+        activity.logger.error(f"Failed to update cluster state: {e}")
+        return {"success": False, "error": str(e)}

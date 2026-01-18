@@ -105,6 +105,13 @@ class GoldenPrompt(BaseModel):
         embedding: Vector embedding of the prompt
         template: Extracted prompt template (if applicable)
         variable_values: Extracted variable values from template
+        
+        # PromptGenie Integration Fields
+        genie_cluster_id: Semantic cluster ID from PromptGenie's Qdrant
+        genie_confidence: Confidence score from PromptGenie's template extraction (0-1)
+        genie_template: Canonical Jinja2 template extracted by PromptGenie
+        genie_routing_decision: Routing strategy from agentic metadata
+        genie_intent_tags: Semantic intent labels from clustering
     """
     original_trace_id: str
     prompt: str
@@ -115,11 +122,36 @@ class GoldenPrompt(BaseModel):
     template: Optional[str] = None
     variable_values: Optional[List[str]] = None
     
+    # PromptGenie Integration Fields
+    genie_cluster_id: Optional[str] = Field(
+        default=None, 
+        description="Semantic cluster ID from PromptGenie's Qdrant vector store"
+    )
+    genie_confidence: Optional[float] = Field(
+        default=None, 
+        ge=0.0, 
+        le=1.0, 
+        description="Template extraction confidence from PromptGenie (0-1)"
+    )
+    genie_template: Optional[str] = Field(
+        default=None, 
+        description="Canonical Jinja2 template extracted by PromptGenie's TemplateArchitect"
+    )
+    genie_routing_decision: Optional[str] = Field(
+        default=None, 
+        description="Routing strategy from agentic metadata (local_only, express_lane, standard_cloud)"
+    )
+    genie_intent_tags: Optional[List[str]] = Field(
+        default=None, 
+        description="Semantic intent labels from PromptGenie clustering"
+    )
+    
     @field_validator("embedding")
     @classmethod
     def validate_embedding_dimensions(cls, v):
-        if v is not None and len(v) != 1536:
-            raise ValueError(f"Expected 1536-dim embedding, got {len(v)}")
+        # Support both 1536-dim (OpenAI) and 384-dim (sentence-transformers) embeddings
+        if v is not None and len(v) not in [384, 768, 1536]:
+            raise ValueError(f"Expected 384, 768, or 1536-dim embedding, got {len(v)}")
         return v
 
 
@@ -417,6 +449,67 @@ class ChallengerConfig(BaseModel):
         otherwise falls back to model_catalog_id.
         """
         return self.virtual_model_name or self.model_catalog_id
+
+
+class GenieConfig(BaseModel):
+    """
+    Configuration for PromptGenie integration.
+    
+    Enables semantic clustering and LLM-powered template extraction
+    via the PromptGenie pipeline instead of the legacy regex-based extractor.
+    
+    When enabled:
+    - Traces are embedded using SentenceTransformers (local FOSS)
+    - Semantic clusters are managed in Qdrant
+    - Canonical Jinja2 templates are extracted via LLM (Portkey)
+    - Agentic metadata enables intelligent routing
+    """
+    enabled: bool = Field(
+        default=False, 
+        description="Enable PromptGenie integration for semantic template extraction"
+    )
+    
+    # Qdrant configuration (shared with PromptGenie)
+    qdrant_host: str = Field(default="localhost", description="Qdrant server host")
+    qdrant_port: int = Field(default=6333, description="Qdrant server port")
+    qdrant_collection: str = Field(
+        default="prompt_clusters", 
+        description="Qdrant collection name (shared with PromptGenie)"
+    )
+    qdrant_api_key: Optional[str] = Field(default=None, description="Qdrant API key")
+    
+    # Processing configuration
+    similarity_threshold: float = Field(
+        default=0.85, 
+        ge=0.0, 
+        le=1.0, 
+        description="Cosine similarity threshold for cluster matching"
+    )
+    min_cluster_size: int = Field(
+        default=5, 
+        ge=1, 
+        description="Minimum prompts before template extraction is triggered"
+    )
+    enforce_privacy: bool = Field(
+        default=True, 
+        description="Skip cloud LLM processing for restricted sensitivity data"
+    )
+    
+    # LLM configuration for template extraction
+    extraction_model: str = Field(
+        default="gpt-5-mini", 
+        description="Primary LLM model for template extraction"
+    )
+    fallback_model: str = Field(
+        default="claude-haiku-4-5", 
+        description="Fallback LLM model if primary fails"
+    )
+    
+    # Storage
+    sqlite_path: str = Field(
+        default="./data/prompt_genie.db", 
+        description="SQLite database path for PromptGenie state"
+    )
     
     
 class WorkflowConfig(BaseModel):
@@ -442,6 +535,12 @@ class WorkflowConfig(BaseModel):
     challengers: List[ChallengerConfig]
     sampler: SamplerConfig = Field(default_factory=SamplerConfig)
     evaluator: EvaluatorConfig = Field(default_factory=EvaluatorConfig)
+    
+    # PromptGenie integration
+    genie: GenieConfig = Field(
+        default_factory=GenieConfig, 
+        description="PromptGenie configuration for semantic template extraction"
+    )
 
 
 # =============================================================================

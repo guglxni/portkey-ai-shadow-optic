@@ -26,11 +26,17 @@ coverage.xml
 # Project specific outputs and data
 .deepeval/
 .phoenix_data/
-comparison_results.json
-hackathon_demo_results.json
-phoenix_traces.json
-production_comparison_results.json
+data/*.json
 repomix-output.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # macOS
 .DS_Store
+
+# Node
+node_modules/

@@ -22,16 +22,14 @@ Portkey provides native support for DSPy, acting as the observability and reliab
 ```python
 import dspy
 
-# Configure DSPy to route through Portkey
+# Configure DSPy with Portkey Native Integration
+# Format: openai/@provider-slug/model-name
+# See: https://portkey.ai/docs/integrations/libraries/dspy
+# NOTE: gpt-5 models use max_completion_tokens
 lm = dspy.LM(
-    model="openai/gpt-4o",
-    api_key="PORTKEY_API_KEY",
-    api_base="https://api.portkey.ai/v1",  # Portkey Gateway
-    # Portkey specific headers for tracing/caching
-    default_headers={
-        "x-portkey-virtual-key": "...",
-        "x-portkey-trace-id": "..."
-    }
+    model="openai/@openai/gpt-5-mini",  # Portkey native format
+    api_key=os.environ["PORTKEY_API_KEY"],
+    api_base="https://api.portkey.ai/v1"
 )
 dspy.configure(lm=lm)
 ```

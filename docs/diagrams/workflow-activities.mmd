@@ -1,0 +1,38 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4F46E5'}}}%%
+
+flowchart TB
+    subgraph Temporal["Temporal Workflow Engine"]
+        Workflow["OptimizeModelSelectionWorkflow"]
+    end
+    
+    subgraph Activities["Temporal Activities"]
+        A1["export_portkey_logs"]
+        A2["parse_portkey_logs"]
+        A3["sample_golden_prompts"]
+        A4["replay_shadow_requests"]
+        A5["evaluate_shadow_results"]
+        A6["generate_optimization_report"]
+        A7["submit_portkey_feedback"]
+    end
+    
+    subgraph External["External Services"]
+        Portkey["Portkey API"]
+        Qdrant["Qdrant"]
+        Phoenix["Phoenix"]
+        DeepEval["DeepEval"]
+    end
+    
+    Workflow --> A1
+    A1 --> A2
+    A2 --> A3
+    A3 --> A4
+    A4 --> A5
+    A5 --> A6
+    A6 --> A7
+    
+    A1 <--> Portkey
+    A3 <--> Qdrant
+    A4 <--> Portkey
+    A5 <--> DeepEval
+    A5 <--> Phoenix
+    A7 <--> Portkey

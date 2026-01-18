@@ -1,0 +1,36 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4F46E5', 'primaryTextColor': '#fff'}}}%%
+
+flowchart LR
+    subgraph Input["Input Stage"]
+        Logs["Production Logs"]
+        Config["Configuration"]
+    end
+    
+    subgraph Processing["Processing Pipeline"]
+        direction TB
+        Parse["Parse Logs"]
+        Embed["Generate Embeddings"]
+        Cluster["Cluster Prompts"]
+        Sample["Select Samples"]
+        Replay["Shadow Replay"]
+        Evaluate["LLM Evaluation"]
+        Analyze["Statistical Analysis"]
+    end
+    
+    subgraph Output["Output Stage"]
+        Report["Report"]
+        Feedback["Feedback"]
+        Metrics["Metrics"]
+    end
+    
+    Logs --> Parse
+    Config --> Parse
+    Parse --> Embed
+    Embed --> Cluster
+    Cluster --> Sample
+    Sample --> Replay
+    Replay --> Evaluate
+    Evaluate --> Analyze
+    Analyze --> Report
+    Analyze --> Feedback
+    Analyze --> Metrics

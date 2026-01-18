@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
-"""Debug GPT-5.2 empty content issue."""
+"""Debug GPT-5.2 empty content issue.
+
+Uses Portkey Model Catalog - see docs/PORTKEY_MODEL_CATALOG.md
+"""
 from portkey_ai import Portkey
 import os
 
+# Model Catalog - uses provider header instead of virtual keys
 portkey = Portkey(
     api_key=os.getenv('PORTKEY_API_KEY'),
-    virtual_key=os.getenv('SHADOW_OPTIC_VIRTUAL_KEY_GPT4')
+    provider="openai"  # Model Catalog provider
 )
 
 # Test with a prompt that was returning empty
 response = portkey.chat.completions.create(
-    model='@openai/gpt-5.2',
+    model='gpt-5.2',  # Model Catalog: just the model name when provider is set
     messages=[{'role': 'user', 'content': 'Explain our return policy'}],
-    max_completion_tokens=300
+    max_completion_tokens=300  # GPT-5 uses max_completion_tokens
 )
 
 print('=== FULL RESPONSE ANALYSIS (300 tokens) ===')
@@ -38,9 +42,9 @@ print()
 # Now test with higher token limit
 print('=== TESTING WITH 2000 TOKEN LIMIT ===')
 response2 = portkey.chat.completions.create(
-    model='@openai/gpt-5.2',
+    model='gpt-5.2',  # Model Catalog format
     messages=[{'role': 'user', 'content': 'Explain our return policy'}],
-    max_completion_tokens=2000
+    max_completion_tokens=2000  # GPT-5 uses max_completion_tokens
 )
 content2 = response2.choices[0].message.content
 print(f'Content: {repr(content2[:100]) if content2 else "(EMPTY)"}...')

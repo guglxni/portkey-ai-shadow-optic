@@ -36,6 +36,12 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
+from pathlib import Path
+
+# Load environment variables from .env file FIRST
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
 
 # Retry logic with exponential backoff
 from tenacity import (
@@ -52,7 +58,7 @@ import logging
 import phoenix as px
 from phoenix.otel import register
 from openinference.instrumentation.openai import OpenAIInstrumentor
-from pathlib import Path
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 import socket
 
 def is_port_in_use(port: int) -> bool:
@@ -78,11 +84,12 @@ if not is_port_in_use(6006):
 else:
     print("Phoenix already running on port 6006")
 
-# Register OpenTelemetry tracer for Phoenix - send to local collector
+# Register OpenTelemetry tracer for Phoenix with BatchSpanProcessor for production
 try:
     tracer_provider = register(
         project_name="shadow-optic-hackathon",
-        endpoint="http://localhost:6006/v1/traces",  # Use HTTP endpoint
+        endpoint="http://localhost:6006/v1/traces",
+        batch=True,  # Use BatchSpanProcessor for better performance
     )
     OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
 except Exception as e:
@@ -139,7 +146,7 @@ MODELS = {
         description="Latest flagship model, best quality",
         is_reasoning=True,  # GPT-5.2 uses internal reasoning tokens
         rate_limit_rpm=20,  # Premium models have lower rate limits
-        min_tokens=2000  # Reasoning models need higher token allocation
+        min_tokens=8000  # Reasoning models need HIGH token allocation for Chain-of-Thought
     ),
     # Standard Tier - Balanced
     "@openai/gpt-5-mini": ModelConfig(
@@ -153,7 +160,7 @@ MODELS = {
         description="Cost-optimized GPT-5 variant",
         is_reasoning=True,  # GPT-5 Mini is a reasoning model
         rate_limit_rpm=30,  # Standard tier rate limits
-        min_tokens=2000  # Reasoning models need higher token allocation
+        min_tokens=8000  # Reasoning models need HIGH token allocation for Chain-of-Thought
     ),
     "@anthropic/claude-haiku-4-5-20251001": ModelConfig(
         id="@anthropic/claude-haiku-4-5-20251001",
@@ -504,6 +511,70 @@ def make_llm_call_with_retry(portkey_client, request_params: dict, model_id: str
         # For retryable errors, let tenacity handle the retry
         raise
 
+
+def make_llm_call_with_adaptive_tokens(
+    portkey_client, 
+    base_request_params: dict, 
+    model_id: str,
+    config: ModelConfig,
+    max_retries: int = 3
+) -> tuple:
+    """
+    Adaptive LLM call that handles reasoning model token exhaustion.
+    
+    For reasoning models (GPT-5, o1, o3), if the response is empty due to
+    all tokens being consumed by internal reasoning, this function will
+    automatically retry with progressively higher token limits.
+    
+    Token escalation strategy:
+    - Attempt 1: config.min_tokens (8000)
+    - Attempt 2: 16000 tokens
+    - Attempt 3: 32000 tokens
+    
+    Returns: (response, actual_token_limit_used)
+    """
+    token_limits = [config.min_tokens, 16000, 32000]
+    
+    for attempt, token_limit in enumerate(token_limits[:max_retries]):
+        request_params = base_request_params.copy()
+        request_params[config.token_param] = token_limit
+        
+        try:
+            response = make_llm_call_with_retry(portkey_client, request_params, model_id)
+            
+            # Check if response is valid
+            if not response or not hasattr(response, 'choices'):
+                continue
+            if not response.choices or len(response.choices) == 0:
+                continue
+            
+            message = response.choices[0].message
+            if not message or not hasattr(message, 'content'):
+                continue
+            
+            content = message.content
+            finish_reason = getattr(response.choices[0], 'finish_reason', 'unknown')
+            
+            # If content is empty and finish_reason is 'length', reasoning consumed all tokens
+            # Only retry for reasoning models
+            if (content is None or content == "") and config.is_reasoning:
+                if finish_reason == 'length' and attempt < len(token_limits) - 1:
+                    logger.info(f"Reasoning model {model_id} returned empty (finish_reason=length) with {token_limit} tokens. Retrying with {token_limits[attempt + 1]} tokens...")
+                    continue  # Try again with more tokens
+            
+            # Valid response (even if empty for non-reasoning models)
+            return response, token_limit
+            
+        except Exception as e:
+            if attempt == len(token_limits) - 1:
+                raise  # Re-raise on last attempt
+            logger.warning(f"Attempt {attempt + 1} failed for {model_id}: {str(e)[:100]}")
+            continue
+    
+    # Return last response even if empty
+    return response, token_limits[-1]
+
+
 async def benchmark_model(
     model_id: str,
     prompts: List[str],
@@ -518,7 +589,8 @@ async def benchmark_model(
     
     tracer = trace.get_tracer("shadow-optic")
     config = MODELS[model_id]
-    portkey = Portkey(api_key=api_key, timeout=httpx.Timeout(60.0, connect=15.0))
+    # Longer timeout for reasoning models which can take 30+ seconds
+    portkey = Portkey(api_key=api_key, timeout=httpx.Timeout(120.0, connect=30.0))
     
     results = []
     total_cost = 0.0
@@ -545,20 +617,17 @@ async def benchmark_model(
             }
         ) as span:
             try:
-                # Use model config to determine token allocation
-                # Reasoning models need higher token limits because they use
-                # tokens for internal reasoning before generating visible output
-                token_limit = config.min_tokens
-                
-                request_params = {
+                # Build base request params
+                base_request_params = {
                     "model": model_id,
                     "messages": [{"role": "user", "content": prompt}],
                 }
-                # Use the correct token parameter for this model
-                request_params[config.token_param] = token_limit
                 
-                # Make API call with automatic retry on rate limits and server errors
-                response = make_llm_call_with_retry(portkey, request_params, model_id)
+                # Use adaptive token call for reasoning models
+                # This automatically retries with higher token limits if response is empty
+                response, token_limit = make_llm_call_with_adaptive_tokens(
+                    portkey, base_request_params, model_id, config
+                )
                 latency_ms = (time.time() - start_time) * 1000
                 
                 # Validate response structure

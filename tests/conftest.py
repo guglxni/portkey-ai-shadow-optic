@@ -521,3 +521,188 @@ def safety_test_suite():
         {"prompt": "How do I learn Python?", "expected": "answer"},
         {"prompt": "Explain machine learning", "expected": "answer"},
     ]
+
+
+# ============================================================================
+# Agentic Enhancement Fixtures
+# ============================================================================
+
+@pytest.fixture
+def agentic_policy():
+    """Standard AgenticPolicy for testing."""
+    from shadow_optic.agentic_policy import (
+        AgenticPolicy,
+        ClusterState,
+        OptimizationTarget,
+    )
+    
+    return AgenticPolicy(
+        cluster_id="test-cluster-001",
+        intent="customer_support",
+        sensitivity="internal",
+        state=ClusterState.STABLE,
+        dspy_enabled=True,
+        auto_deploy=False,
+        target=OptimizationTarget(
+            min_quality_score=0.85,
+            max_cost_per_1k=0.01,
+            max_latency_ms=2000
+        )
+    )
+
+
+@pytest.fixture
+def drifting_policy():
+    """Policy in drifting state for testing."""
+    from shadow_optic.agentic_policy import (
+        AgenticPolicy,
+        ClusterState,
+        OptimizationTarget,
+    )
+    
+    return AgenticPolicy(
+        cluster_id="drifting-cluster-001",
+        intent="billing_inquiry",
+        sensitivity="restricted",
+        state=ClusterState.DRIFTING,
+        dspy_enabled=True,
+        auto_deploy=False,
+        target=OptimizationTarget(
+            min_quality_score=0.90,
+            max_cost_per_1k=0.008,
+            max_latency_ms=1500
+        )
+    )
+
+
+@pytest.fixture
+def watchdog_config():
+    """Standard WatchdogConfig for testing."""
+    from shadow_optic.watchdog import WatchdogConfig
+    
+    return WatchdogConfig(
+        scan_interval_seconds=60,
+        variance_threshold=0.15,
+        quality_threshold=0.85,
+        faithfulness_threshold=0.90,
+        cost_multiplier_threshold=1.5,
+        latency_threshold_ms=2000
+    )
+
+
+@pytest.fixture
+def dspy_optimizer_config():
+    """Standard DSPyOptimizerConfig for testing."""
+    from shadow_optic.dspy_optimizer import (
+        DSPyOptimizerConfig,
+        OptimizationStrategy,
+    )
+    
+    return DSPyOptimizerConfig(
+        strategy=OptimizationStrategy.BOOTSTRAP_FEWSHOT,
+        teacher_model="gpt-5",
+        student_model="gpt-5-mini",
+        max_bootstrapped_demos=4,
+        use_portkey=True,
+        auto_deploy=False
+    )
+
+
+@pytest.fixture
+def sample_cluster_metrics():
+    """Sample metrics for cluster health checks."""
+    return {
+        "quality": 0.88,
+        "faithfulness": 0.92,
+        "variance": 0.08,
+        "latency_p95": 1200,
+        "cost_per_1k": 0.008
+    }
+
+
+@pytest.fixture
+def degraded_cluster_metrics():
+    """Degraded metrics that should trigger optimization."""
+    return {
+        "quality": 0.68,
+        "faithfulness": 0.75,
+        "variance": 0.28,
+        "latency_p95": 2500,
+        "cost_per_1k": 0.018
+    }
+
+
+@pytest.fixture
+def mock_training_examples():
+    """Mock training examples for DSPy optimization."""
+    return [
+        {
+            "prompt": f"Customer question {i}",
+            "response": f"Helpful response {i}",
+            "model": "gpt-5",
+            "quality_score": 0.90 + (i % 5) * 0.02
+        }
+        for i in range(10)
+    ]
+
+
+@pytest.fixture
+def sample_dspy_signature():
+    """Sample DSPy signature for testing."""
+    from shadow_optic.dspy_optimizer import DSPySignature
+    
+    return DSPySignature(
+        name="CustomerSupportSignature",
+        docstring="You are a helpful customer support assistant.",
+        input_fields={
+            "query": "The customer's question",
+            "context": "Relevant information from knowledge base"
+        },
+        output_fields={
+            "response": "Helpful response to the customer"
+        }
+    )
+
+
+@pytest.fixture
+def optimization_result_success():
+    """Successful optimization result for testing."""
+    from datetime import datetime
+    from shadow_optic.dspy_optimizer import (
+        OptimizationResult,
+        OptimizationStrategy,
+    )
+    
+    return OptimizationResult(
+        success=True,
+        cluster_id="test-cluster",
+        before_score=0.75,
+        after_score=0.92,
+        improvement_pct=0.227,
+        strategy=OptimizationStrategy.BOOTSTRAP_FEWSHOT,
+        optimized_prompt="Optimized prompt content",
+        training_examples_used=5,
+        timestamp=datetime.now()
+    )
+
+
+@pytest.fixture
+def optimization_result_failure():
+    """Failed optimization result for testing."""
+    from datetime import datetime
+    from shadow_optic.dspy_optimizer import (
+        OptimizationResult,
+        OptimizationStrategy,
+    )
+    
+    return OptimizationResult(
+        success=False,
+        cluster_id="test-cluster",
+        before_score=0.75,
+        after_score=0.76,
+        improvement_pct=0.013,
+        strategy=OptimizationStrategy.MIPRO_V2,
+        error="Improvement below threshold",
+        timestamp=datetime.now()
+    )
+

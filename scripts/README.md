@@ -2,7 +2,7 @@
 
 Utility scripts for bootstrapping, testing, and demo preparation.
 
-## 📋 Scripts Overview
+##  Scripts Overview
 
 ### 1. `bootstrap_portkey.py` - Configuration Setup
 **Purpose:** Upload Shadow-Optic configurations to Portkey and capture config IDs.
@@ -80,18 +80,18 @@ python scripts/preflight_check.py
 ```
 
 **What it checks:**
-- ✅ Environment variables set
-- ✅ Python packages installed
-- ✅ Portkey API connectivity
-- ✅ Qdrant connectivity
-- ✅ Temporal connectivity
-- ✅ Portkey configs exist
+-  Environment variables set
+-  Python packages installed
+-  Portkey API connectivity
+-  Qdrant connectivity
+-  Temporal connectivity
+-  Portkey configs exist
 
 **Output:** Beautiful terminal report with pass/fail status for each component.
 
 ---
 
-## 🚀 Quick Start Workflow
+##  Quick Start Workflow
 
 ### First Time Setup
 
@@ -126,7 +126,7 @@ open http://localhost:3000  # Grafana
 
 ---
 
-## 📊 Demo Preparation Checklist
+##  Demo Preparation Checklist
 
 - [ ] **Environment Variables**
   - `PORTKEY_API_KEY`
@@ -150,7 +150,7 @@ open http://localhost:3000  # Grafana
 
 ---
 
-## 🎯 Hackathon "Money Shot" Sequence
+##  Hackathon "Money Shot" Sequence
 
 For maximum impact during demo presentation:
 
@@ -172,12 +172,12 @@ open http://localhost:8233  # Watch activities progress
 
 # 6. Wait for completion (~2-5 minutes)
 # Activities shown:
-#   1. Export Portkey logs ✅
-#   2. Semantic sampling ✅
-#   3. Shadow replays ✅
-#   4. LLM-as-Judge evaluation ✅
-#   5. Cost analysis ✅
-#   6. Recommendation generation ✅
+#   1. Export Portkey logs 
+#   2. Semantic sampling 
+#   3. Shadow replays 
+#   4. LLM-as-Judge evaluation 
+#   5. Cost analysis 
+#   6. Recommendation generation 
 
 # 7. Show results in Portkey Feedback
 open https://app.portkey.ai/feedback  # Shadow scores!
@@ -188,7 +188,7 @@ open http://localhost:3000  # Cost savings metrics
 
 ---
 
-## 🔧 Troubleshooting
+##  Troubleshooting
 
 ### Bootstrap fails with "Config not found"
 **Solution:** Make sure your Portkey API key has permissions to create configs.
@@ -211,7 +211,7 @@ ps aux | grep temporal
 
 ---
 
-## 📝 Notes
+##  Notes
 
 - **Costs:** Seed traffic uses real API calls. 50 requests ≈ $0.50-$1.00 depending on model.
 - **Rate Limits:** Default concurrency (5) is conservative. Increase carefully.

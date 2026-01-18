@@ -1,0 +1,85 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4F46E5', 'primaryTextColor': '#fff', 'primaryBorderColor': '#4338CA', 'lineColor': '#6366F1', 'secondaryColor': '#E0E7FF', 'tertiaryColor': '#EEF2FF'}}}%%
+
+flowchart TB
+    subgraph Production["Production Environment"]
+        Users[("Users")]
+        App["Application"]
+        Portkey["Portkey Gateway"]
+        ProdModel["Production Model<br/>GPT-5.2"]
+    end
+    
+    subgraph ShadowOptic["Shadow-Optic Platform"]
+        subgraph Ingestion["1. Data Ingestion"]
+            LogExport["Logs Export API"]
+            Parser["Log Parser"]
+        end
+        
+        subgraph Sampling["2. Intelligent Sampling"]
+            Embeddings["Embedding Generation"]
+            Clustering["K-Means Clustering"]
+            Selector["Sample Selector"]
+            Qdrant[("Qdrant<br/>Vector DB")]
+        end
+        
+        subgraph Replay["3. Shadow Replay"]
+            Challenger1["Challenger 1<br/>GPT-5 Mini"]
+            Challenger2["Challenger 2<br/>Claude Haiku"]
+            Challenger3["Challenger 3<br/>Grok 4"]
+        end
+        
+        subgraph Evaluation["4. LLM-as-Judge"]
+            DeepEval["DeepEval Engine"]
+            Judge["Judge Model<br/>Claude Opus 4.5"]
+            Metrics["Quality Metrics"]
+        end
+        
+        subgraph Decision["5. Decision Engine"]
+            Analysis["Statistical Analysis"]
+            Thompson["Thompson Sampling"]
+            Recommendation["Recommendation<br/>Engine"]
+        end
+        
+        subgraph Observability["Observability"]
+            Phoenix["Arize Phoenix"]
+            Temporal["Temporal"]
+        end
+    end
+    
+    subgraph Output["Output"]
+        Report["Optimization Report"]
+        Feedback["Portkey Feedback API"]
+        Dashboard["Analytics Dashboard"]
+    end
+    
+    Users --> App
+    App --> Portkey
+    Portkey --> ProdModel
+    ProdModel --> Users
+    
+    Portkey -.->|"Historical Logs"| LogExport
+    LogExport --> Parser
+    Parser --> Embeddings
+    Embeddings --> Qdrant
+    Qdrant --> Clustering
+    Clustering --> Selector
+    
+    Selector --> Challenger1
+    Selector --> Challenger2
+    Selector --> Challenger3
+    
+    Challenger1 --> DeepEval
+    Challenger2 --> DeepEval
+    Challenger3 --> DeepEval
+    DeepEval --> Judge
+    Judge --> Metrics
+    
+    Metrics --> Analysis
+    Analysis --> Thompson
+    Thompson --> Recommendation
+    
+    Recommendation --> Report
+    Recommendation --> Feedback
+    Report --> Dashboard
+    
+    Temporal -.->|"Orchestration"| ShadowOptic
+    Phoenix -.->|"Tracing"| Evaluation

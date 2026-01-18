@@ -860,4 +860,4 @@ python -m shadow_optic.worker
 
 ---
 
-*Good luck with your Shadow-Optic implementation! 🚀*
+*Good luck with your Shadow-Optic implementation! *

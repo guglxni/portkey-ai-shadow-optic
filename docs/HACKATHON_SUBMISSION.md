@@ -1,19 +1,19 @@
-# 🏆 Shadow-Optic: Enterprise LLM Cost & Safety Optimization
+#  Shadow-Optic: Enterprise LLM Cost & Safety Optimization
 
 > **"Reduce LLM costs by 79% while maintaining safety compliance"**
 
 ## Hackathon Demo Results (Jan 17, 2026)
 
-### 📊 Key Metrics
+###  Key Metrics
 
 | Model | Cost/Request | vs GPT-5.2 | Safety Score | Recommendation |
 |-------|-------------|------------|--------------|----------------|
 | **GPT-5.2** (Production) | $0.00294 | Baseline | 96.8% | Current standard |
-| **GPT-5 Mini** | $0.00061 | **↓ 79.3%** | 100% | ✅ **RECOMMENDED** |
-| Claude Haiku 4.5 | $0.00131 | ↓ 55.4% | 80.6% | ⚠️ More refusals |
-| Grok 4 Fast | $0.00212 | ↓ 28.0% | 83.9% | ⚠️ More refusals |
+| **GPT-5 Mini** | $0.00061 | **↓ 79.3%** | 100% |  **RECOMMENDED** |
+| Claude Haiku 4.5 | $0.00131 | ↓ 55.4% | 80.6% | ALERT: More refusals |
+| Grok 4 Fast | $0.00212 | ↓ 28.0% | 83.9% | ALERT: More refusals |
 
-### 💰 ROI Analysis (at 1M requests/year)
+###  ROI Analysis (at 1M requests/year)
 
 | Metric | Current (GPT-5.2) | Optimized (GPT-5 Mini) | Savings |
 |--------|-------------------|------------------------|---------|
@@ -22,7 +22,7 @@
 
 ---
 
-## 🎯 What Shadow-Optic Does
+##  What Shadow-Optic Does
 
 Shadow-Optic is an enterprise platform that helps organizations:
 
@@ -40,7 +40,7 @@ while maintaining equivalent safety compliance."
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 
@@ -79,7 +79,7 @@ python scripts/hackathon_demo.py --prompts 45
 ```
 shadow-optic/
 ├── scripts/
-│   ├── hackathon_demo.py       # 🏆 Main hackathon demo
+│   ├── hackathon_demo.py       #  Main hackathon demo
 │   └── production_ready_demo.py # Production comparison script
 ├── src/shadow_optic/
 │   ├── decision_engine.py       # A/B testing & recommendations
@@ -119,7 +119,7 @@ shadow-optic/
 
 ---
 
-## 📈 Test Results
+##  Test Results
 
 ```
 ========================= test session starts =========================
@@ -179,15 +179,15 @@ Claude Opus 4.5 is selected because:
 
 ---
 
-## 📊 Sample Output
+##  Sample Output
 
 ```
 ╭──────────────────────────────────────────────────────────╮
-│    🏆 SHADOW-OPTIC                                       │
+│     SHADOW-OPTIC                                       │
 │    Enterprise LLM Cost & Safety Optimization Platform    │
 ╰──────────────────────────────────────────────────────────╯
 
-💰 Cost Analysis
+ Cost Analysis
 ┌────────────────┬────────┬───────────┬────────────┐
 │ Model          │ Tier   │ Total     │ vs Prod    │
 ├────────────────┼────────┼───────────┼────────────┤
@@ -197,10 +197,10 @@ Claude Opus 4.5 is selected because:
 │ Grok 4 Fast    │ econ   │ $0.0656   │ ↓ 28.0%    │
 └────────────────┴────────┴───────────┴────────────┘
 
-🧪 A/B Test: GPT-5.2 vs GPT-5 Mini
+ A/B Test: GPT-5.2 vs GPT-5 Mini
    💵 Cost Savings: +79.3%
-   🛡️ Safety Delta: -3.2%
-   ✅ SWITCH to GPT-5 Mini: Save 79.3% with acceptable safety
+    Safety Delta: -3.2%
+    SWITCH to GPT-5 Mini: Save 79.3% with acceptable safety
 ```
 
 ---
